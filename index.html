@@ -3,152 +3,224 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>FR先鋒科技—視覺震撼重力觸控</title>
+    <title>ULTRA PLASMA - HYPER FLUID</title>
     <style>
-        :root { --neon: #bc13fe; }
-        * { margin: 0; padding: 0; box-sizing: border-box; overflow: hidden; touch-action: none; user-select: none; }
-        body { background-color: #000; height: 100vh; width: 100vw; }
-
-        /* 超過載霓虹邊框 */
-        body::after {
-            content: ''; position: fixed; inset: 0; border: 5px solid transparent;
-            border-image: conic-gradient(from var(--angle), transparent, var(--neon), #fff, var(--neon), transparent) 1;
-            z-index: 100; pointer-events: none;
-            filter: drop-shadow(0 0 30px var(--neon)) contrast(200%);
-            animation: rotateGradient 0.5s linear infinite;
+        :root {
+            --neon-purple: #bc13fe;
         }
-        @property --angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
-        @keyframes rotateGradient { to { --angle: 360deg; } }
 
-        canvas { position: fixed; top: 0; left: 0; z-index: 1; transform: translateZ(0); }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            overflow: hidden;
+            touch-action: none;
+            user-select: none;
+        }
 
-        /* 黑洞重力爆發震動 */
-        .distort { animation: distortAnim 0.05s infinite; }
-        @keyframes distortAnim {
-            0% { transform: scale(1.005) translate(2px, 2px); filter: contrast(1.2); }
-            50% { transform: scale(0.995) translate(-3px, -1px); filter: contrast(1.5); }
-            100% { transform: scale(1.005) translate(1px, -2px); }
+        body {
+            background-color: #000;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* 更強、更快的流動邊框 */
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            border: 6px solid transparent;
+            border-image: conic-gradient(from var(--angle), transparent, var(--neon-purple), #fff, var(--neon-purple), transparent) 1;
+            z-index: 100;
+            pointer-events: none;
+            filter: drop-shadow(0 0 15px var(--neon-purple));
+            animation: rotateGradient 1s linear infinite;
+        }
+
+        @property --angle {
+            syntax: '<angle>';
+            initial-value: 0deg;
+            inherits: false;
+        }
+
+        @keyframes rotateGradient {
+            to { --angle: 360deg; }
+        }
+
+        canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1;
+            /* 開啟硬體加速 */
+            transform: translateZ(0);
+        }
+
+        /* 震撼抖動動畫 */
+        .shake {
+            animation: shakeAnim 0.15s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        @keyframes shakeAnim {
+            10%, 90% { transform: translate3d(-2px, 0, 0); }
+            20%, 80% { transform: translate3d(4px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-6px, 0, 0); }
+            40%, 60% { transform: translate3d(6px, 0, 0); }
+        }
+
+        /* 點擊瞬間的閃光效果 */
+        .flash-overlay {
+            position: fixed;
+            inset: 0;
+            background: white;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 99;
+        }
+        .do-flash {
+            animation: flashAnim 0.3s ease-out;
+        }
+        @keyframes flashAnim {
+            0% { opacity: 0.3; }
+            100% { opacity: 0; }
         }
     </style>
 </head>
 <body id="body">
+    <div id="flash" class="flash-overlay"></div>
     <canvas id="stage"></canvas>
 
     <script>
         const canvas = document.getElementById('stage');
-        const ctx = canvas.getContext('2d', { alpha: false });
+        const ctx = canvas.getContext('2d', { alpha: false }); // 關閉 alpha 提升渲染效能
         const body = document.getElementById('body');
-        let width, height, particles = [];
-        let touchPoints = new Map();
+        const flash = document.getElementById('flash');
+        
+        let width, height;
+        let particles = [];
+        let touchPoints = [];
 
         function resize() {
             width = canvas.width = window.innerWidth;
             height = canvas.height = window.innerHeight;
         }
+
         window.addEventListener('resize', resize);
         resize();
 
         class Particle {
-            constructor(x, y, isBurst = false) {
-                this.reset(x, y, isBurst);
-            }
-            reset(x, y, isBurst) {
-                this.x = x; this.y = y;
-                this.px = x; this.py = y;
-                const angle = Math.random() * Math.PI * 2;
-                // 爆發時的極速
-                const speed = isBurst ? Math.random() * 35 + 10 : Math.random() * 5;
-                this.vx = Math.cos(angle) * speed;
-                this.vy = Math.sin(angle) * speed;
-                // 顆粒細緻化
-                this.size = Math.random() * 1.5 + 0.3;
-                this.color = Math.random() > 0.1 ? '#bc13fe' : '#ffffff';
+            constructor(x, y, isExplosion = false) {
+                this.x = x;
+                this.y = y;
+                // 爆炸粒子更快，更有噴射感
+                const speedMult = isExplosion ? 25 : 8;
+                this.vx = (Math.random() - 0.5) * speedMult;
+                this.vy = (Math.random() - 0.5) * speedMult;
+                this.size = Math.random() * 4 + 1;
+                this.color = Math.random() > 0.2 ? '#bc13fe' : '#ffffff';
                 this.alpha = 1;
-                this.decay = Math.random() * 0.006 + 0.002;
+                this.decay = Math.random() * 0.03 + 0.01;
             }
-            update() {
-                this.px = this.x; this.py = this.y;
-                
-                touchPoints.forEach((p) => {
-                    const dx = p.x - this.x, dy = p.y - this.y;
-                    const dSq = dx*dx + dy*dy;
-                    
-                    if (dSq < 2250000) { // 1500px 超大吸引半徑
-                        const d = Math.sqrt(dSq);
-                        // 黑洞核心邏輯：引力隨長按 power 增加
-                        const f = Math.pow((1500 - d) / 1500, 4) * p.power;
-                        
-                        this.vx += dx * f * 0.2;
-                        this.vy += dy * f * 0.2;
-                        
-                        // 強化的吸積盤漩渦力
-                        const rotate = f * 0.08;
-                        this.vx += dy * rotate;
-                        this.vy -= dx * rotate;
-                    }
-                });
-                
-                this.x += this.vx; this.y += this.vy;
-                this.vx *= 0.92; this.vy *= 0.92;
-                this.alpha -= this.decay;
-            }
+
             draw() {
+                ctx.fillStyle = this.color;
                 ctx.globalAlpha = this.alpha;
-                ctx.strokeStyle = this.color;
-                ctx.lineWidth = this.size;
-                ctx.lineCap = 'round';
                 ctx.beginPath();
-                ctx.moveTo(this.px, this.py);
-                ctx.lineTo(this.x, this.y); 
-                ctx.stroke();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            update() {
+                // 強化的重力匯聚
+                touchPoints.forEach(p => {
+                    const dx = p.x - this.x;
+                    const dy = p.y - this.y;
+                    const force = 0.015;
+                    this.vx += dx * force;
+                    this.vy += dy * force;
+                });
+
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vx *= 0.94; // 稍微增加空氣阻力讓動態更自然
+                this.vy *= 0.94;
+                this.alpha -= this.decay;
             }
         }
 
-        function triggerMassiveBurst(x, y) {
-            body.classList.add('distort');
-            setTimeout(() => body.classList.remove('distort'), 200);
-            for (let i = 0; i < 300; i++) {
+        function triggerShock(x, y) {
+            // 視覺震撼：閃光與抖動
+            flash.classList.remove('do-flash');
+            void flash.offsetWidth; 
+            flash.classList.add('do-flash');
+
+            body.classList.remove('shake');
+            void body.offsetWidth;
+            body.classList.add('shake');
+
+            // 產生大量噴射粒子
+            for (let i = 0; i < 80; i++) {
                 particles.push(new Particle(x, y, true));
             }
         }
 
-        const handlePointer = (e) => {
-            if (touchPoints.has(e.pointerId)) {
-                let p = touchPoints.get(e.pointerId);
-                p.x = e.clientX; p.y = e.clientY;
-                // 長按黑洞增強邏輯
-                p.power += 0.06; 
-                if (p.power > 5) body.classList.add('distort');
-            } else {
-                touchPoints.set(e.pointerId, {x: e.clientX, y: e.clientY, power: 1.5});
-            }
+        function handleInput(e) {
+            const isTouch = e.type.startsWith('touch');
+            const clientX = isTouch ? e.touches[0].clientX : e.clientX;
+            const clientY = isTouch ? e.touches[0].clientY : e.clientY;
             
-            // 隨時噴發微小粒子
-            for(let i=0; i < 10; i++) {
-                particles.push(new Particle(e.clientX, e.clientY));
-            }
-        };
+            touchPoints = [{ x: clientX, y: clientY }];
+            triggerShock(clientX, clientY);
+            
+            if(isTouch) e.preventDefault();
+        }
 
-        window.addEventListener('pointerdown', (e) => {
-            handlePointer(e);
-            triggerMassiveBurst(e.clientX, e.clientY);
-        });
-        window.addEventListener('pointermove', (e) => { if (touchPoints.has(e.pointerId)) handlePointer(e); });
-        window.addEventListener('pointerup', (e) => {
-            touchPoints.delete(e.pointerId);
-            body.classList.remove('distort');
-        });
-        window.addEventListener('pointercancel', (e) => {
-            touchPoints.delete(e.pointerId);
-            body.classList.remove('distort');
-        });
+        function handleMove(e) {
+            const isTouch = e.type.startsWith('touch');
+            const clientX = isTouch ? e.touches[0].clientX : e.clientX;
+            const clientY = isTouch ? e.touches[0].clientY : e.clientY;
+            
+            touchPoints = [{ x: clientX, y: clientY }];
+            
+            // 流暢感：滑動時持續產生細碎流光
+            for(let i=0; i<4; i++) {
+                particles.push(new Particle(clientX, clientY));
+            }
+            if(isTouch) e.preventDefault();
+        }
+
+        window.addEventListener('mousedown', handleInput);
+        window.addEventListener('touchstart', handleInput, { passive: false });
+        window.addEventListener('mousemove', (e) => { if(e.buttons > 0) handleMove(e); });
+        window.addEventListener('touchmove', handleMove, { passive: false });
+        window.addEventListener('mouseup', () => touchPoints = []);
+        window.addEventListener('touchend', () => touchPoints = []);
 
         function animate() {
+            // 優化殘影：source-over 配合深色填充
             ctx.globalCompositeOperation = 'source-over';
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.35)'; 
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.15)'; // 減少數值可以讓拖尾更長
             ctx.fillRect(0, 0, width, height);
             
             ctx.globalCompositeOperation = 'lighter';
+
+            // 強化連線邏輯：只連線鄰近且明亮的粒子
+            ctx.lineWidth = 0.8;
+            for (let i = 0; i < particles.length; i += 3) { // 步進增加提升流暢度
+                for (let j = i + 1; j < particles.length; j += 10) {
+                    const dx = particles[i].x - particles[j].x;
+                    const dy = particles[i].y - particles[j].y;
+                    const distSq = dx * dx + dy * dy; // 使用平方距離避免 Math.sqrt 開根號，大幅提升效能
+
+                    if (distSq < 10000) { // 100 像素的平方
+                        ctx.strokeStyle = `rgba(188, 19, 254, ${particles[i].alpha * 0.3})`;
+                        ctx.beginPath();
+                        ctx.moveTo(particles[i].x, particles[i].y);
+                        ctx.lineTo(particles[j].x, particles[j].y);
+                        ctx.stroke();
+                    }
+                }
+            }
 
             for (let i = particles.length - 1; i >= 0; i--) {
                 const p = particles[i];
@@ -156,9 +228,10 @@
                 p.draw();
                 if (p.alpha <= 0) particles.splice(i, 1);
             }
-            
+
             requestAnimationFrame(animate);
         }
+
         animate();
     </script>
 </body>
