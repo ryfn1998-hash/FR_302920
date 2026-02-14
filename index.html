@@ -3,35 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TITAN PLASMA - OVERLOAD</title>
+    <title>PLASMA GRAVITY CORE</title>
     <style>
-        :root { --neon: #bc13fe; --glow: #ff00ff; }
+        :root { --neon: #bc13fe; }
         * { margin: 0; padding: 0; box-sizing: border-box; overflow: hidden; touch-action: none; user-select: none; }
         body { background-color: #000; height: 100vh; width: 100vw; }
 
-        /* 邊框強化：光暈加寬、速度加倍 */
+        /* 極限流動邊框 */
         body::after {
-            content: ''; position: fixed; inset: 0; border: 10px solid transparent;
-            border-image: conic-gradient(from var(--angle), transparent, var(--neon), #fff, var(--glow), transparent) 1;
+            content: ''; position: fixed; inset: 0; border: 8px solid transparent;
+            border-image: conic-gradient(from var(--angle), transparent, var(--neon), #fff, var(--neon), transparent) 1;
             z-index: 100; pointer-events: none;
-            filter: drop-shadow(0 0 35px var(--neon)) blur(1px);
-            animation: rotateGradient 0.8s linear infinite;
+            filter: drop-shadow(0 0 25px var(--neon));
+            animation: rotateGradient 1s linear infinite;
         }
-
         @property --angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
         @keyframes rotateGradient { to { --angle: 360deg; } }
 
         canvas { position: fixed; top: 0; left: 0; z-index: 1; transform: translateZ(0); }
 
-        /* 毀滅性震動效果 */
-        .shake { animation: heavyShake 0.2s cubic-bezier(.36,.07,.19,.97) both; }
+        .shake { animation: heavyShake 0.15s infinite; }
         @keyframes heavyShake {
-            0% { transform: translate(0,0); }
-            20% { transform: translate(-10px, 8px); }
-            40% { transform: translate(10px, -8px); }
-            60% { transform: translate(-10px, -5px); }
-            80% { transform: translate(10px, 5px); }
-            100% { transform: translate(0,0); }
+            0% { transform: translate(3px, 3px); }
+            50% { transform: translate(-4px, -2px); }
+            100% { transform: translate(3px, 1px); }
         }
     </style>
 </head>
@@ -40,13 +35,9 @@
 
     <script>
         const canvas = document.getElementById('stage');
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d', { alpha: false });
         const body = document.getElementById('body');
-        
-        let width, height;
-        let particles = [];
-        let shockwaves = [];
-        let touchPoints = [];
+        let width, height, particles = [], touchPoints = [];
 
         function resize() {
             width = canvas.width = window.innerWidth;
@@ -55,100 +46,80 @@
         window.addEventListener('resize', resize);
         resize();
 
-        class Shockwave {
-            constructor(x, y) {
-                this.x = x; this.y = y;
-                this.r = 0;
-                this.alpha = 1;
-            }
-            update() { this.r += 15; this.alpha -= 0.03; }
-            draw() {
-                ctx.save();
-                ctx.strokeStyle = `rgba(188, 19, 254, ${this.alpha})`;
-                ctx.lineWidth = 5;
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
-                ctx.stroke();
-                ctx.restore();
-            }
-        }
-
         class Particle {
-            constructor(x, y, isSuper = false) {
+            constructor(x, y, isBurst = false) {
                 this.x = x; this.y = y;
-                this.lastX = x; this.lastY = y;
+                const speed = isBurst ? 20 : 6;
                 const angle = Math.random() * Math.PI * 2;
-                const force = isSuper ? Math.random() * 30 + 10 : Math.random() * 8 + 2;
+                const force = Math.random() * speed;
                 this.vx = Math.cos(angle) * force;
                 this.vy = Math.sin(angle) * force;
                 this.size = Math.random() * 3 + 1;
-                this.color = Math.random() > 0.3 ? '#bc13fe' : '#ffffff';
+                this.color = Math.random() > 0.2 ? '#bc13fe' : '#ffffff';
                 this.alpha = 1;
-                this.decay = Math.random() * 0.02 + 0.01;
+                this.decay = Math.random() * 0.015 + 0.005;
             }
-
             update() {
-                this.lastX = this.x;
-                this.lastY = this.y;
-                this.x += this.vx;
-                this.y += this.vy;
-                this.vx *= 0.92;
-                this.vy *= 0.92;
+                touchPoints.forEach(p => {
+                    const dx = p.x - this.x, dy = p.y - this.y;
+                    const distSq = dx*dx + dy*dy;
+                    if (distSq < 160000) { // 400px 範圍
+                        const dist = Math.sqrt(distSq);
+                        const force = (400 - dist) / 400;
+                        this.vx += dx * force * 0.08; // 強重力吸附
+                        this.vy += dy * force * 0.08;
+                    }
+                });
+                this.x += this.vx; this.y += this.vy;
+                this.vx *= 0.94; this.vy *= 0.94;
                 this.alpha -= this.decay;
             }
-
             draw() {
-                // 流光效果：連接上一幀的位置
-                ctx.save();
                 ctx.globalAlpha = this.alpha;
-                ctx.strokeStyle = this.color;
-                ctx.lineWidth = this.size;
-                ctx.lineCap = 'round';
+                ctx.fillStyle = this.color;
                 ctx.beginPath();
-                ctx.moveTo(this.lastX, this.lastY);
-                ctx.lineTo(this.x, this.y);
-                ctx.stroke();
-                ctx.restore();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
             }
         }
 
-        function triggerEpic(x, y) {
-            body.classList.remove('shake');
-            void body.offsetWidth;
+        function createExplosion(x, y) {
             body.classList.add('shake');
-
-            shockwaves.push(new Shockwave(x, y));
-            for (let i = 0; i < 100; i++) {
+            setTimeout(() => body.classList.remove('shake'), 200);
+            for (let i = 0; i < 80; i++) {
                 particles.push(new Particle(x, y, true));
             }
         }
 
-        window.addEventListener('mousedown', (e) => triggerEpic(e.clientX, e.clientY));
-        window.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            triggerEpic(e.touches[0].clientX, e.touches[0].clientY);
-        }, { passive: false });
+        const updateInput = (e) => {
+            const t = e.touches ? e.touches[0] : e;
+            touchPoints = [{x: t.clientX, y: t.clientY}];
+            // 移動時產生的流星效果
+            for(let i=0; i<5; i++) particles.push(new Particle(t.clientX, t.clientY));
+        };
+
+        window.addEventListener('mousedown', (e) => { updateInput(e); createExplosion(e.clientX, e.clientY); });
+        window.addEventListener('touchstart', (e) => { updateInput(e); createExplosion(e.touches[0].clientX, e.touches[0].clientY); });
+        window.addEventListener('mousemove', (e) => { if(e.buttons > 0) updateInput(e); });
+        window.addEventListener('touchmove', (e) => { updateInput(e); });
+        window.addEventListener('mouseup', () => touchPoints = []);
+        window.addEventListener('touchend', () => touchPoints = []);
 
         function animate() {
-            // 背景殘影
             ctx.globalCompositeOperation = 'source-over';
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.18)'; // 絲滑拖尾感
             ctx.fillRect(0, 0, width, height);
             
-            ctx.globalCompositeOperation = 'lighter';
+            ctx.globalCompositeOperation = 'lighter'; // 能量過載發光
 
-            // 繪製衝擊波
-            shockwaves = shockwaves.filter(s => s.alpha > 0);
-            shockwaves.forEach(s => { s.update(); s.draw(); });
-
-            // 繪製粒子連線 (電弧感)
-            ctx.lineWidth = 0.5;
+            // 電漿連線 (只連線高能粒子)
+            ctx.lineWidth = 0.6;
             for (let i = 0; i < particles.length; i += 4) {
-                for (let j = i + 1; j < particles.length; j += 15) {
+                for (let j = i + 1; j < particles.length; j += 12) {
                     const dx = particles[i].x - particles[j].x;
                     const dy = particles[i].y - particles[j].y;
                     if (dx*dx + dy*dy < 8000) {
-                        ctx.strokeStyle = `rgba(255, 255, 255, ${particles[i].alpha * 0.2})`;
+                        ctx.strokeStyle = `rgba(188, 19, 254, ${particles[i].alpha * 0.4})`;
                         ctx.beginPath();
                         ctx.moveTo(particles[i].x, particles[i].y);
                         ctx.lineTo(particles[j].x, particles[j].y);
@@ -157,12 +128,14 @@
                 }
             }
 
-            particles = particles.filter(p => p.alpha > 0);
-            particles.forEach(p => { p.update(); p.draw(); });
-
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.update();
+                p.draw();
+                if (p.alpha <= 0) particles.splice(i, 1);
+            }
             requestAnimationFrame(animate);
         }
-
         animate();
     </script>
 </body>
