@@ -3,29 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BLACK HOLE - NANO PLASMA</title>
+    <title>FR先鋒科技—視覺震撼重力觸控</title>
     <style>
         :root { --neon: #bc13fe; }
         * { margin: 0; padding: 0; box-sizing: border-box; overflow: hidden; touch-action: none; user-select: none; }
         body { background-color: #000; height: 100vh; width: 100vw; }
 
+        /* 高頻率過載邊框 */
         body::after {
             content: ''; position: fixed; inset: 0; border: 4px solid transparent;
             border-image: conic-gradient(from var(--angle), transparent, var(--neon), #fff, var(--neon), transparent) 1;
             z-index: 100; pointer-events: none;
-            filter: drop-shadow(0 0 15px var(--neon));
-            animation: rotateGradient 0.8s linear infinite;
+            filter: drop-shadow(0 0 20px var(--neon));
+            animation: rotateGradient 0.6s linear infinite;
         }
         @property --angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
         @keyframes rotateGradient { to { --angle: 360deg; } }
 
         canvas { position: fixed; top: 0; left: 0; z-index: 1; transform: translateZ(0); }
 
-        .shake { animation: heavyShake 0.1s infinite; }
-        @keyframes heavyShake {
-            0% { transform: translate(4px, 4px); }
-            50% { transform: translate(-5px, -3px); }
-            100% { transform: translate(2px, -1px); }
+        /* 強化長按時的空間震動感 */
+        .heavy-shake { animation: singularityShake 0.05s infinite; }
+        @keyframes singularityShake {
+            0% { transform: translate(2px, 2px); }
+            50% { transform: translate(-2px, -2px); }
+            100% { transform: translate(1px, -1px); }
         }
     </style>
 </head>
@@ -48,85 +50,100 @@
 
         class Particle {
             constructor(x, y, isBurst = false) {
+                this.reset(x, y, isBurst);
+            }
+            reset(x, y, isBurst) {
                 this.x = x; this.y = y;
-                const speed = isBurst ? 25 : 4;
+                // 爆發時的擴散速度
+                const speed = isBurst ? Math.random() * 25 + 5 : Math.random() * 5;
                 const angle = Math.random() * Math.PI * 2;
-                const force = Math.random() * speed;
-                this.vx = Math.cos(angle) * force;
-                this.vy = Math.sin(angle) * force;
-                this.size = Math.random() * 1.5 + 0.5; 
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+                // 粒子極微小化：0.3px ~ 1.2px
+                this.size = Math.random() * 0.9 + 0.3; 
                 this.color = Math.random() > 0.1 ? '#bc13fe' : '#ffffff';
                 this.alpha = 1;
-                this.decay = Math.random() * 0.01 + 0.003;
+                this.decay = Math.random() * 0.008 + 0.002;
             }
             update() {
                 touchPoints.forEach((p) => {
                     const dx = p.x - this.x, dy = p.y - this.y;
                     const distSq = dx*dx + dy*dy;
                     
-                    if (distSq < 360000) { // 600px 感應範圍
+                    // 偵測範圍加大，確保長按時全螢幕吸入
+                    if (distSq < 1000000) { 
                         const dist = Math.sqrt(distSq);
-                        // 黑洞重力公式：(1 - 距離/範圍) 的平方，達成近距離極速吸入
-                        const gravityField = Math.pow((600 - dist) / 600, 2);
-                        const pull = gravityField * 0.4; 
-                        
-                        this.vx += dx * pull * 0.15;
-                        this.vy += dy * pull * 0.15;
+                        // 黑洞核心邏輯：距離愈短，引力呈幾何級數增加
+                        const force = Math.pow((1000 - dist) / 1000, 4) * 1.5;
+                        this.vx += dx * force * 0.2;
+                        this.vy += dy * force * 0.2;
                     }
                 });
                 
                 this.x += this.vx; this.y += this.vy;
-                this.vx *= 0.92; // 阻尼：模擬進入黑洞吸積盤的摩擦感
-                this.vy *= 0.92;
+                this.vx *= 0.91; // 吸附後的軌道穩定感
+                this.vy *= 0.91;
                 this.alpha -= this.decay;
             }
             draw() {
                 ctx.globalAlpha = this.alpha;
                 ctx.fillStyle = this.color;
+                // 繪製極細粒子
                 ctx.fillRect(this.x, this.y, this.size, this.size);
             }
         }
 
-        function createExplosion(x, y) {
-            body.classList.add('shake');
-            setTimeout(() => body.classList.remove('shake'), 150);
-            for (let i = 0; i < 200; i++) {
+        function createBurst(x, y, count) {
+            body.classList.add('heavy-shake');
+            setTimeout(() => body.classList.remove('heavy-shake'), 100);
+            for (let i = 0; i < count; i++) {
                 particles.push(new Particle(x, y, true));
             }
         }
 
-        const updateInput = (e) => {
-            const t = e.touches ? e.touches[0] : e;
-            touchPoints.set(e.pointerId || 'mouse', {x: t.clientX, y: t.clientY});
-            for(let i=0; i<12; i++) particles.push(new Particle(t.clientX, t.clientY));
+        const handlePointer = (e) => {
+            const isTouch = e.pointerType === 'touch';
+            touchPoints.set(e.pointerId, {x: e.clientX, y: e.clientY});
+            
+            // 持續產生細小量子星塵
+            const spawnCount = isTouch ? 15 : 8;
+            for(let i=0; i < spawnCount; i++) {
+                particles.push(new Particle(e.clientX, e.clientY));
+            }
         };
 
         window.addEventListener('pointerdown', (e) => {
-            updateInput(e);
-            createExplosion(e.clientX, e.clientY);
+            handlePointer(e);
+            createBurst(e.clientX, e.clientY, 150);
         });
+
         window.addEventListener('pointermove', (e) => {
-            if(e.buttons > 0 || e.pointerType === 'touch') updateInput(e);
+            if (touchPoints.has(e.pointerId)) {
+                handlePointer(e);
+            }
         });
-        window.addEventListener('pointerup', (e) => touchPoints.delete(e.pointerId || 'mouse'));
-        window.addEventListener('pointercancel', (e) => touchPoints.delete(e.pointerId || 'mouse'));
+
+        window.addEventListener('pointerup', (e) => touchPoints.delete(e.pointerId));
+        window.addEventListener('pointercancel', (e) => touchPoints.delete(e.pointerId));
 
         function animate() {
+            // 優化殘影效果，讓粒子吸入時帶有絲滑的光跡
             ctx.globalCompositeOperation = 'source-over';
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.3)'; // 增加殘影深度，讓黑洞感更重
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.35)'; 
             ctx.fillRect(0, 0, width, height);
             
             ctx.globalCompositeOperation = 'lighter';
 
-            // 強化密集電漿連線
-            ctx.lineWidth = 0.5;
-            const step = particles.length > 800 ? 10 : 5; 
-            for (let i = 0; i < particles.length; i += step) {
-                for (let j = i + 1; j < particles.length; j += 25) {
+            // 量子電漿連線：只在密度極高（長按中心）時觸發細密連線
+            ctx.lineWidth = 0.3;
+            const skip = particles.length > 1500 ? 12 : 6;
+            for (let i = 0; i < particles.length; i += skip) {
+                for (let j = i + 1; j < particles.length; j += 30) {
                     const dx = particles[i].x - particles[j].x;
                     const dy = particles[i].y - particles[j].y;
-                    if (dx*dx + dy*dy < 5000) { 
-                        ctx.strokeStyle = `rgba(188, 19, 254, ${particles[i].alpha * 0.4})`;
+                    const dSq = dx*dx + dy*dy;
+                    if (dSq < 4000) { 
+                        ctx.strokeStyle = `rgba(188, 19, 254, ${particles[i].alpha * 0.3})`;
                         ctx.beginPath();
                         ctx.moveTo(particles[i].x, particles[i].y);
                         ctx.lineTo(particles[j].x, particles[j].y);
