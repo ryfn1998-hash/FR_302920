@@ -57,7 +57,9 @@
                 const force = Math.random() * speed;
                 this.vx = Math.cos(angle) * force;
                 this.vy = Math.sin(angle) * force;
-                this.size = Math.random() * 3 + 1;
+                // --- 僅修改此處：粒子變小細緻 ---
+                this.size = Math.random() * 1.2 + 0.3; 
+                // -----------------------------
                 this.color = Math.random() > 0.2 ? '#bc13fe' : '#ffffff';
                 this.alpha = 1;
                 this.decay = Math.random() * 0.015 + 0.005;
