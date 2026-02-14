@@ -3,30 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PLASMA GRAVITY CORE</title>
+    <title>BLACK HOLE - NANO PLASMA</title>
     <style>
         :root { --neon: #bc13fe; }
         * { margin: 0; padding: 0; box-sizing: border-box; overflow: hidden; touch-action: none; user-select: none; }
         body { background-color: #000; height: 100vh; width: 100vw; }
 
-        /* 極限流動邊框 */
         body::after {
-            content: ''; position: fixed; inset: 0; border: 8px solid transparent;
+            content: ''; position: fixed; inset: 0; border: 4px solid transparent;
             border-image: conic-gradient(from var(--angle), transparent, var(--neon), #fff, var(--neon), transparent) 1;
             z-index: 100; pointer-events: none;
-            filter: drop-shadow(0 0 25px var(--neon));
-            animation: rotateGradient 1s linear infinite;
+            filter: drop-shadow(0 0 15px var(--neon));
+            animation: rotateGradient 0.8s linear infinite;
         }
         @property --angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
         @keyframes rotateGradient { to { --angle: 360deg; } }
 
         canvas { position: fixed; top: 0; left: 0; z-index: 1; transform: translateZ(0); }
 
-        .shake { animation: heavyShake 0.15s infinite; }
+        .shake { animation: heavyShake 0.1s infinite; }
         @keyframes heavyShake {
-            0% { transform: translate(3px, 3px); }
-            50% { transform: translate(-4px, -2px); }
-            100% { transform: translate(3px, 1px); }
+            0% { transform: translate(4px, 4px); }
+            50% { transform: translate(-5px, -3px); }
+            100% { transform: translate(2px, -1px); }
         }
     </style>
 </head>
@@ -37,7 +36,8 @@
         const canvas = document.getElementById('stage');
         const ctx = canvas.getContext('2d', { alpha: false });
         const body = document.getElementById('body');
-        let width, height, particles = [], touchPoints = [];
+        let width, height, particles = [];
+        let touchPoints = new Map();
 
         function resize() {
             width = canvas.width = window.innerWidth;
@@ -49,76 +49,83 @@
         class Particle {
             constructor(x, y, isBurst = false) {
                 this.x = x; this.y = y;
-                const speed = isBurst ? 20 : 6;
+                const speed = isBurst ? 25 : 4;
                 const angle = Math.random() * Math.PI * 2;
                 const force = Math.random() * speed;
                 this.vx = Math.cos(angle) * force;
                 this.vy = Math.sin(angle) * force;
-                this.size = Math.random() * 3 + 1;
-                this.color = Math.random() > 0.2 ? '#bc13fe' : '#ffffff';
+                this.size = Math.random() * 1.5 + 0.5; 
+                this.color = Math.random() > 0.1 ? '#bc13fe' : '#ffffff';
                 this.alpha = 1;
-                this.decay = Math.random() * 0.015 + 0.005;
+                this.decay = Math.random() * 0.01 + 0.003;
             }
             update() {
-                touchPoints.forEach(p => {
+                touchPoints.forEach((p) => {
                     const dx = p.x - this.x, dy = p.y - this.y;
                     const distSq = dx*dx + dy*dy;
-                    if (distSq < 160000) { // 400px 範圍
+                    
+                    if (distSq < 360000) { // 600px 感應範圍
                         const dist = Math.sqrt(distSq);
-                        const force = (400 - dist) / 400;
-                        this.vx += dx * force * 0.08; // 強重力吸附
-                        this.vy += dy * force * 0.08;
+                        // 黑洞重力公式：(1 - 距離/範圍) 的平方，達成近距離極速吸入
+                        const gravityField = Math.pow((600 - dist) / 600, 2);
+                        const pull = gravityField * 0.4; 
+                        
+                        this.vx += dx * pull * 0.15;
+                        this.vy += dy * pull * 0.15;
                     }
                 });
+                
                 this.x += this.vx; this.y += this.vy;
-                this.vx *= 0.94; this.vy *= 0.94;
+                this.vx *= 0.92; // 阻尼：模擬進入黑洞吸積盤的摩擦感
+                this.vy *= 0.92;
                 this.alpha -= this.decay;
             }
             draw() {
                 ctx.globalAlpha = this.alpha;
                 ctx.fillStyle = this.color;
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-                ctx.fill();
+                ctx.fillRect(this.x, this.y, this.size, this.size);
             }
         }
 
         function createExplosion(x, y) {
             body.classList.add('shake');
-            setTimeout(() => body.classList.remove('shake'), 200);
-            for (let i = 0; i < 80; i++) {
+            setTimeout(() => body.classList.remove('shake'), 150);
+            for (let i = 0; i < 200; i++) {
                 particles.push(new Particle(x, y, true));
             }
         }
 
         const updateInput = (e) => {
             const t = e.touches ? e.touches[0] : e;
-            touchPoints = [{x: t.clientX, y: t.clientY}];
-            // 移動時產生的流星效果
-            for(let i=0; i<5; i++) particles.push(new Particle(t.clientX, t.clientY));
+            touchPoints.set(e.pointerId || 'mouse', {x: t.clientX, y: t.clientY});
+            for(let i=0; i<12; i++) particles.push(new Particle(t.clientX, t.clientY));
         };
 
-        window.addEventListener('mousedown', (e) => { updateInput(e); createExplosion(e.clientX, e.clientY); });
-        window.addEventListener('touchstart', (e) => { updateInput(e); createExplosion(e.touches[0].clientX, e.touches[0].clientY); });
-        window.addEventListener('mousemove', (e) => { if(e.buttons > 0) updateInput(e); });
-        window.addEventListener('touchmove', (e) => { updateInput(e); });
-        window.addEventListener('mouseup', () => touchPoints = []);
-        window.addEventListener('touchend', () => touchPoints = []);
+        window.addEventListener('pointerdown', (e) => {
+            updateInput(e);
+            createExplosion(e.clientX, e.clientY);
+        });
+        window.addEventListener('pointermove', (e) => {
+            if(e.buttons > 0 || e.pointerType === 'touch') updateInput(e);
+        });
+        window.addEventListener('pointerup', (e) => touchPoints.delete(e.pointerId || 'mouse'));
+        window.addEventListener('pointercancel', (e) => touchPoints.delete(e.pointerId || 'mouse'));
 
         function animate() {
             ctx.globalCompositeOperation = 'source-over';
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.18)'; // 絲滑拖尾感
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.3)'; // 增加殘影深度，讓黑洞感更重
             ctx.fillRect(0, 0, width, height);
             
-            ctx.globalCompositeOperation = 'lighter'; // 能量過載發光
+            ctx.globalCompositeOperation = 'lighter';
 
-            // 電漿連線 (只連線高能粒子)
-            ctx.lineWidth = 0.6;
-            for (let i = 0; i < particles.length; i += 4) {
-                for (let j = i + 1; j < particles.length; j += 12) {
+            // 強化密集電漿連線
+            ctx.lineWidth = 0.5;
+            const step = particles.length > 800 ? 10 : 5; 
+            for (let i = 0; i < particles.length; i += step) {
+                for (let j = i + 1; j < particles.length; j += 25) {
                     const dx = particles[i].x - particles[j].x;
                     const dy = particles[i].y - particles[j].y;
-                    if (dx*dx + dy*dy < 8000) {
+                    if (dx*dx + dy*dy < 5000) { 
                         ctx.strokeStyle = `rgba(188, 19, 254, ${particles[i].alpha * 0.4})`;
                         ctx.beginPath();
                         ctx.moveTo(particles[i].x, particles[i].y);
